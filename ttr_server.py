@@ -182,7 +182,59 @@ def server_program():
         # pick from face up pile
         #####################################################################
         elif play[0] == "pfu":
-            pass
+            while True:
+                # play[1] should contain a color of a card in the face up pile
+                try:
+                    if play[1] not in tc.get_face_up_pile():
+                        raise Exception(play[1] + " is not in face up pile")
+                    players[player].store_train_card(tc.get_train_card_from_face_up_pile(play[1]))
+                    if play[1] == 'wild' :
+                        # first pick was wild, no second pick
+                        break
+                    print(players[player].train_cards)
+                    print(tc.get_face_up_pile())
+                    while True:
+                        if not test:
+                            # receive data stream. it won't accept data packet greater than 1024 bytes
+                            connection_list[player].send(data.encode())  # send data to the client
+                            play = connection_list[player].recv(1024).decode()
+                            if not data:
+                                # if data is not received break
+                                break
+                            #print("from connected user: %d" % (player))
+                            #print(" : " + str(data))
+                        else:
+                            play = input('pick from deck or face up pile -> ')
+                        play = play.split()
+
+                        if play[0] in  ["pd", "pfu"] :
+                            if play[0] == "pd" :
+                                break
+                            # play is pfu, can't pick wild now
+                            elif play[1] != "wild":
+                                break
+                            else :
+                                print("can't pick wild card as second choice")
+                        else:
+                            print("valid plays are : pd, pfu")
+                    if play[0] == "pd" :
+                        card = tc.get_train_card_from_deck()
+                        players[player].store_train_card(card)
+                        print(card)
+                    else:
+                        #player chose to pick from face up pile
+                        if play[1] in tc.get_face_up_pile():
+                            players[player].store_train_card(tc.get_train_card_from_face_up_pile(play[1]))
+                            print(tc.get_face_up_pile())
+                        else:
+                            print("%s is not in the face up pile, stop trying to cheat!" % play[1])
+                    break
+                except Exception as e:
+                    print (e)
+                    play = input('enter play -> ')
+                    play = play.split()
+                    continue
+                    
 
         #####################################################################
         # pick route cards
@@ -192,7 +244,7 @@ def server_program():
             for i in range(3):
                 card = ttr.get_route_card()
                 rc_options.append([card.city1, card.city2, card.points])
-                print(i+1,": ",rc_options[i])
+                print(i+1,": ",card.city1, card.city2, card.points)
             #while True:
             if not test:
                     # receive data stream. it won't accept data packet greater than 1024 bytes

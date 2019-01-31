@@ -5,45 +5,44 @@ import matplotlib.pyplot as plt
 
 # list of valid cities that can be used. Use this to throw errors or suggest cities to enter so it will match how I programmed cities.
 
-valid_cities = [
-    'atlanta',
-    'boston',
-    'calgary',
-    'charleston',
-    'chicago',
-    'dallas',
-    'denver',
-    'duluth',
-    'el_paso',
-    'helena',
-    'houston',
-    'kansas_city',
-    'las_vegas',
-    'little_rock',
-    'los_angeles',
-    'miami',
-    'montreal',
-    'nashville',
-    'new_orleans',
-    'new_york',
-    'oklahoma_city',
-    'omaha',
-    'phoenix',
-    'pittsburgh',
-    'portland',
-    'raleigh',
-    'saint_louis',
-    'salt_lake',
-    'san_francisco',
-    'santa_fe',
-    'sault_st_marie',
-    'seattle',
-    'toronto',
-    'vancouver',
-    'washington',
-    'winnipeg'
-]
-
+valid_cities = {
+    'atlanta' : (24,13),
+    'boston' : (30.5,4.3),
+    'calgary' : (7.25, 2.5),
+    'charleston' : (28.8,13.3),
+    'chicago' : (21, 8.3),
+    'dallas' : (17, 16.25),
+    'denver' : (12,11.3),
+    'duluth' : (17.5, 6.5),
+    'el_paso' : (11.8,16.2),
+    'helena' : (10.25,6.7),
+    'houston' : (18.25,17.5),
+    'kansas_city' : (17,11),
+    'las_vegas' : (6.5,13.6),
+    'little_rock' : (19.25,12.75),
+    'los_angeles' : (4.5, 15.5),
+    'miami' : (30.7, 18),
+    'montreal' : (28.5,2.5),
+    'nashville' : (22.5, 12),
+    'new_orleans' : (21.5, 17),
+    'new_york' : (30, 6.8),
+    'oklahoma_city' : (16.5, 13.5),
+    'omaha' : (16.5, 9.5),
+    'phoenix' : (8, 15),
+    'pittsburgh' : (25, 8),
+    'portland' : (2.5, 6.25),
+    'raleigh' : (26, 11.25),
+    'saint_louis' : (19.75, 10.25),
+    'salt_lake' : (8.25, 10.5),
+    'san_francisco' : (2.1, 12.3),
+    'santa_fe' : (12, 13.2),
+    'sault_st_marie' : (21,4.5),
+    'seattle' : (3.2, 5),
+    'toronto' : (24.5, 5),
+    'vancouver' : (3.25, 3.25),
+    'washington' : (30.5, 9.25),
+    'winnipeg' : (14,3)
+}
 colors = ['black','blue','white','green','red','orange','yellow','pink']
 
 class track(object):
@@ -93,6 +92,7 @@ track_list = [track('vancouver','seattle','grey',1),
               track('calgary','winnipeg','white',6),
               track('helena','duluth','orange',6),
               track('helena','omaha','red',5),
+              track('helena','winnipeg','blue',4),
               track('helena','denver','green',4),
               track('denver','omaha','pink',4),
               track('denver','kansas_city','orange',4),
@@ -186,7 +186,7 @@ class route_card(object):
         return "%s, %s, %d" % (self.city1, self.city2, self.points)
 
     def __repr__(self):
-        return "%s, %s, %d" % (self.city1, self.city2, self.points)
+        return [self.city1, self.city2, self.points]
 
 route_card_list=[
     route_card('portland','phoenix',10),
@@ -221,6 +221,8 @@ route_card_list=[
     route_card('denver','el_paso',4)
 ]
 
+track_score = {0:0, 1:1, 2:2, 3:4, 4:7, 5:10, 6:15}
+
 def get_route_card():
     return route_card_list.pop(0)
 #train cards
@@ -242,7 +244,6 @@ class train_card(object):
         
         for i in range(14):
             self.deck.append('wild')
-            
         random.shuffle(self.deck)
 
         #create the face up pile of train cards players can choose from
@@ -360,15 +361,15 @@ class player(object):
      #   print(j.city1,j.city2,j.points)
     #print('--'*50)
 
-#g = nx.MultiGraph()
-#for i in track_list:
-#    g.add_edge(i.city1,i.city2,i.length)
-#
-#plt.figure(1,figsize=(18,8))
-#nx.draw_networkx(g,with_labels=True)
-#
-##nx.shortest_path(g,'vancouver','miami')
-#
+# g = nx.MultiGraph()
+# for i in track_list:
+   # g.add_edge(i.city1,i.city2,weight=i.length)
+
+
+# plt.figure(1,figsize=(10,6))
+# plt.gca().invert_yaxis()
+# nx.draw_networkx(g,pos=valid_cities, with_labels=True)
+
 #g2 = nx.MultiGraph()
 #for i in route_card_list:
 #    g2.add_edge(i.city1,i.city2)
@@ -376,3 +377,43 @@ class player(object):
 #plt.figure(1,figsize=(18,8))
 #nx.draw_networkx(g2,with_labels=True)
 
+#def get_route_cost(g, city1, city2):
+#    cost = 0
+#    shortest_path = nx.dijkstra_path(g, city1, city2)
+#    for i in range(len(shortest_path) - 1):
+#        cost += g[shortest_path[i]] [shortest_path[i+1]] [0] ['weight']
+#    return cost
+
+def get_route_cost(g, route_card_list):
+    # g - networkx graph
+    # route_card_list - list of 2 or 3 route cards
+    cost = 0
+    points = 0
+    g2 = g.copy()
+    cities = set()
+
+    #calculate cost and number of points for each route
+    for rc in route_card_list:
+        shortest_path = nx.dijkstra_path(g2, rc.city1, rc.city2)
+        for city in shortest_path:
+            cities.add(city)
+        for i in range(len(shortest_path) - 1):
+            track_length = g2[shortest_path[i]] [shortest_path[i+1]] [0] ['weight']
+            cost += track_length
+            points += track_score[track_length]
+            g2[shortest_path[i]] [shortest_path[i+1]] [0] ['weight'] = 0
+    print (cities)
+    return cost, points
+
+def select_route_cards(g, rcl):
+    eval_list = [(0,1), (1,0), (1,2), (2,1), (0,1,2), (0,2,1), (1,0,2),(1,2,0),(2,0,1),(2,1,0)]
+    for eval in eval_list:
+        route_cards = []
+        for j in eval:
+            route_cards.append(rcl[j])
+        route_cost, points = get_route_cost(g, route_cards)
+        for rc in eval:
+            points += rcl[j].points
+        print(route_cost, points, points/route_cost)
+        
+#select_route_cards(g, [route_card_list[0], route_card_list[1], route_card_list[2]])
