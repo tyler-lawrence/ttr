@@ -1,7 +1,7 @@
 import random
 import networkx as nx
-import numpy as np
-import matplotlib.pyplot as plt
+#import numpy as np
+#import matplotlib.pyplot as plt
 
 # list of valid cities that can be used. Use this to throw errors or suggest cities to enter so it will match how I programmed cities.
 
@@ -46,7 +46,7 @@ valid_cities = {
 colors = ['black','blue','white','green','red','orange','yellow','pink']
 
 class track(object):
-    def __init__(self,city1, city2, color, length, owner=0):
+    def __init__(self,city1, city2, color, length, owner = -1):
         try:
             # validate the parameters
             assert city1 in valid_cities, "city 1 is invalid: " + city1
@@ -86,6 +86,7 @@ track_list = [track('vancouver','seattle','grey',1),
               track('los_angeles','el_paso','black',6),
               track('phoenix','el_paso','grey',3),
               track('phoenix','denver','white',5),
+              track('phoenix','santa_fe','grey',3),
               track('salt_lake','denver','red',3),
               track('salt_lake','denver','yellow',3),
               track('salt_lake','helena','pink',3),
@@ -168,17 +169,16 @@ track_list = [track('vancouver','seattle','grey',1),
 #create route cards
 class route_card(object):
     '''
-    class to store all route cards. in the face-up pile, face-down in the deck, or in the discard pile
+    class to define a route card
     '''
-    def __init__(self,city1, city2, points, owner=0, completed=False):
+    def __init__(self,city1, city2, points):
         try:
             assert city1 in valid_cities, "city 1 is invalid: " + city1
             assert city2 in valid_cities, "city 2 is invalid: " + city2
+            assert isinstance(points, int), "points must be an integer: " + points
             self.city1 = city1
             self.city2 = city2
             self.points = points
-            self.owner = owner
-            self.completed = completed
         except AssertionError as e:
             print(e)
             
@@ -201,7 +201,7 @@ route_card_list=[
     route_card('dallas','new_york',11),
     route_card('los_angeles','miami',20),
     route_card('new_york','atlanta',6),
-    route_card('sault_st_marie','oklahoma_city','9'),
+    route_card('sault_st_marie','oklahoma_city',9),
     route_card('sault_st_marie','nashville',8),
     route_card('toronto','miami',10),
     route_card('winnipeg','houston',12),
@@ -223,8 +223,40 @@ route_card_list=[
 
 track_score = {0:0, 1:1, 2:2, 3:4, 4:7, 5:10, 6:15}
 
-def get_route_card():
-    return route_card_list.pop(0)
+
+class route_card_deck(object):
+    '''
+    class to store route cards. in the deck or in the discard pile
+    '''
+
+    def __init__(self):
+        self.deck = []
+        self.discard_pile = []
+        self.discard_pile = []
+        self.deck = route_card_list.copy()
+        random.shuffle(self.deck)
+
+    def get_route_card_from_deck(self):
+        card = self.deck.pop()
+        if not self.deck:
+            random.shuffle(self.deck)
+            self.deck = self.discard_pile.copy()
+            self.discard_pile.clear()
+        return card
+
+    def get_route_card(self):
+        card = self.deck.pop()
+        if not self.deck:
+            random.shuffle(self.discard_pile)
+            self.deck = self.discard_pile.copy()
+            self.discard_pile.clear()
+        return card
+
+    def discard(self, route_card):
+        self.discard_pile.append(route_card)
+
+
+
 #train cards
 class train_card(object):
     '''
@@ -274,14 +306,18 @@ class train_card(object):
     
     def get_train_card_from_face_up_pile(self, pick):
         try:
-            assert pick in self.face_up_pile, "not in face up pile: " + pick
+            if pick not in self.face_up_pile:
+                raise Exception("not in face up pile: " + pick)
             card = self.face_up_pile.pop(self.face_up_pile.index(pick))
             #replace the card that was just drawn
             self.face_up_pile.append(self.get_train_card_from_deck())
             self.three_wild_check()
             return card
-        except AssertionError as e:
-            print(e)
+        except Exception as e:
+            raise e
+
+    def discard(self):
+        self.discard_pile.append(self)
             
     
 #distributes the intial starting cards. each person gets two cards
@@ -299,14 +335,15 @@ class player(object):
     ''' 
     container for player state info
     '''
-    def __init__(self):      
+    def __init__(self, index):      
         # TODO: private variables should be named __name
         self.route_cards = []
         self.train_cards = dict({'black' : 0,'blue' : 0,'white' : 0,
                                  'green' : 0,'red' : 0,'orange' : 0,
                                  'yellow' : 0,'pink' : 0, 'wild' : 0})
-        self.train_count = 0
+        self.train_count = 45
         self.points = 0
+        self.index = index
             
     def store_route_card(self, route_card):
         self.route_cards.append(route_card)
@@ -316,6 +353,37 @@ class player(object):
         
     def get_train_count(self):
         return self.train_count
+        
+    def can_afford(self, track, color):
+        return track.length <= (self.train_cards[color] + self.train_cards['wild'])
+
+    def buy_track(self, track, color):
+        if track.length <= self.train_cards[color]:
+            self.train_cards[color] -= track.length
+            train_card(color).discard()
+        else:
+            number_wild = track.length - self.train_cards[color] 
+            self.train_cards[color] = 0
+            self.train_cards['wild'] -= number_wild
+            train_card('wild').discard()
+        track.owner = self.index
+        self.train_count -= track.length
+        self.points += track_score[track.length]
+
+    def longest_track(self):
+        g = nx.Graph()
+
+        my_tracks = [t for t in track_list if t.owner == self.index]
+        for t in my_tracks:
+            g.add_edge(t.city1, t.city2, weight = t.length)
+
+#        while g:
+#            for edge in g.edges:
+#                g.edges.
+#                traversed = list(edge)
+
+        
+        return longest
 
 #player_routes = {}
 #for i in range(n_p):
