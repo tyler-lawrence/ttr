@@ -1,53 +1,52 @@
 import random
 import networkx as nx
-import numpy as np
-import matplotlib.pyplot as plt
+#import numpy as np
+#import matplotlib.pyplot as plt
 
 # list of valid cities that can be used. Use this to throw errors or suggest cities to enter so it will match how I programmed cities.
 
-valid_cities = [
-    'atlanta',
-    'boston',
-    'calgary',
-    'charleston',
-    'chicago',
-    'dallas',
-    'denver',
-    'duluth',
-    'el_paso',
-    'helena',
-    'houston',
-    'kansas_city',
-    'las_vegas',
-    'little_rock',
-    'los_angeles',
-    'miami',
-    'montreal',
-    'nashville',
-    'new_orleans',
-    'new_york',
-    'oklahoma_city',
-    'omaha',
-    'phoenix',
-    'pittsburgh',
-    'portland',
-    'raleigh',
-    'saint_louis',
-    'salt_lake',
-    'san_francisco',
-    'santa_fe',
-    'sault_st_marie',
-    'seattle',
-    'toronto',
-    'vancouver',
-    'washington',
-    'winnipeg'
-]
-
+valid_cities = {
+    'atlanta' : (24,13),
+    'boston' : (30.5,4.3),
+    'calgary' : (7.25, 2.5),
+    'charleston' : (28.8,13.3),
+    'chicago' : (21, 8.3),
+    'dallas' : (17, 16.25),
+    'denver' : (12,11.3),
+    'duluth' : (17.5, 6.5),
+    'el_paso' : (11.8,16.2),
+    'helena' : (10.25,6.7),
+    'houston' : (18.25,17.5),
+    'kansas_city' : (17,11),
+    'las_vegas' : (6.5,13.6),
+    'little_rock' : (19.25,12.75),
+    'los_angeles' : (4.5, 15.5),
+    'miami' : (30.7, 18),
+    'montreal' : (28.5,2.5),
+    'nashville' : (22.5, 12),
+    'new_orleans' : (21.5, 17),
+    'new_york' : (30, 6.8),
+    'oklahoma_city' : (16.5, 13.5),
+    'omaha' : (16.5, 9.5),
+    'phoenix' : (8, 15),
+    'pittsburgh' : (25, 8),
+    'portland' : (2.5, 6.25),
+    'raleigh' : (26, 11.25),
+    'saint_louis' : (19.75, 10.25),
+    'salt_lake' : (8.25, 10.5),
+    'san_francisco' : (2.1, 12.3),
+    'santa_fe' : (12, 13.2),
+    'sault_st_marie' : (21,4.5),
+    'seattle' : (3.2, 5),
+    'toronto' : (24.5, 5),
+    'vancouver' : (3.25, 3.25),
+    'washington' : (30.5, 9.25),
+    'winnipeg' : (14,3)
+}
 colors = ['black','blue','white','green','red','orange','yellow','pink']
 
 class track(object):
-    def __init__(self,city1, city2, color, length, owner=0):
+    def __init__(self,city1, city2, color, length, owner = -1):
         try:
             # validate the parameters
             assert city1 in valid_cities, "city 1 is invalid: " + city1
@@ -87,12 +86,14 @@ track_list = [track('vancouver','seattle','grey',1),
               track('los_angeles','el_paso','black',6),
               track('phoenix','el_paso','grey',3),
               track('phoenix','denver','white',5),
+              track('phoenix','santa_fe','grey',3),
               track('salt_lake','denver','red',3),
               track('salt_lake','denver','yellow',3),
               track('salt_lake','helena','pink',3),
               track('calgary','winnipeg','white',6),
               track('helena','duluth','orange',6),
               track('helena','omaha','red',5),
+              track('helena','winnipeg','blue',4),
               track('helena','denver','green',4),
               track('denver','omaha','pink',4),
               track('denver','kansas_city','orange',4),
@@ -168,17 +169,16 @@ track_list = [track('vancouver','seattle','grey',1),
 #create route cards
 class route_card(object):
     '''
-    class to store all route cards. in the face-up pile, face-down in the deck, or in the discard pile
+    class to define a route card
     '''
-    def __init__(self,city1, city2, points, owner=0, completed=False):
+    def __init__(self,city1, city2, points):
         try:
             assert city1 in valid_cities, "city 1 is invalid: " + city1
             assert city2 in valid_cities, "city 2 is invalid: " + city2
+            assert isinstance(points, int), "points must be an integer: " + points
             self.city1 = city1
             self.city2 = city2
             self.points = points
-            self.owner = owner
-            self.completed = completed
         except AssertionError as e:
             print(e)
             
@@ -186,7 +186,7 @@ class route_card(object):
         return "%s, %s, %d" % (self.city1, self.city2, self.points)
 
     def __repr__(self):
-        return "%s, %s, %d" % (self.city1, self.city2, self.points)
+        return [self.city1, self.city2, self.points]
 
 route_card_list=[
     route_card('portland','phoenix',10),
@@ -201,7 +201,7 @@ route_card_list=[
     route_card('dallas','new_york',11),
     route_card('los_angeles','miami',20),
     route_card('new_york','atlanta',6),
-    route_card('sault_st_marie','oklahoma_city','9'),
+    route_card('sault_st_marie','oklahoma_city',9),
     route_card('sault_st_marie','nashville',8),
     route_card('toronto','miami',10),
     route_card('winnipeg','houston',12),
@@ -221,8 +221,42 @@ route_card_list=[
     route_card('denver','el_paso',4)
 ]
 
-def get_route_card():
-    return route_card_list.pop(0)
+track_score = {0:0, 1:1, 2:2, 3:4, 4:7, 5:10, 6:15}
+
+
+class route_card_deck(object):
+    '''
+    class to store route cards. in the deck or in the discard pile
+    '''
+
+    def __init__(self):
+        self.deck = []
+        self.discard_pile = []
+        self.discard_pile = []
+        self.deck = route_card_list.copy()
+        random.shuffle(self.deck)
+
+    def get_route_card_from_deck(self):
+        card = self.deck.pop()
+        if not self.deck:
+            random.shuffle(self.deck)
+            self.deck = self.discard_pile.copy()
+            self.discard_pile.clear()
+        return card
+
+    def get_route_card(self):
+        card = self.deck.pop()
+        if not self.deck:
+            random.shuffle(self.discard_pile)
+            self.deck = self.discard_pile.copy()
+            self.discard_pile.clear()
+        return card
+
+    def discard(self, route_card):
+        self.discard_pile.append(route_card)
+
+
+
 #train cards
 class train_card(object):
     '''
@@ -242,7 +276,6 @@ class train_card(object):
         
         for i in range(14):
             self.deck.append('wild')
-            
         random.shuffle(self.deck)
 
         #create the face up pile of train cards players can choose from
@@ -273,14 +306,18 @@ class train_card(object):
     
     def get_train_card_from_face_up_pile(self, pick):
         try:
-            assert pick in self.face_up_pile, "not in face up pile: " + pick
+            if pick not in self.face_up_pile:
+                raise Exception("not in face up pile: " + pick)
             card = self.face_up_pile.pop(self.face_up_pile.index(pick))
             #replace the card that was just drawn
             self.face_up_pile.append(self.get_train_card_from_deck())
             self.three_wild_check()
             return card
-        except AssertionError as e:
-            print(e)
+        except Exception as e:
+            raise e
+
+    def discard(self):
+        self.discard_pile.append(self)
             
     
 #distributes the intial starting cards. each person gets two cards
@@ -298,14 +335,15 @@ class player(object):
     ''' 
     container for player state info
     '''
-    def __init__(self):      
+    def __init__(self, index):      
         # TODO: private variables should be named __name
         self.route_cards = []
         self.train_cards = dict({'black' : 0,'blue' : 0,'white' : 0,
                                  'green' : 0,'red' : 0,'orange' : 0,
                                  'yellow' : 0,'pink' : 0, 'wild' : 0})
-        self.train_count = 0
+        self.train_count = 45
         self.points = 0
+        self.index = index
             
     def store_route_card(self, route_card):
         self.route_cards.append(route_card)
@@ -315,6 +353,37 @@ class player(object):
         
     def get_train_count(self):
         return self.train_count
+        
+    def can_afford(self, track, color):
+        return track.length <= (self.train_cards[color] + self.train_cards['wild'])
+
+    def buy_track(self, track, color):
+        if track.length <= self.train_cards[color]:
+            self.train_cards[color] -= track.length
+            train_card(color).discard()
+        else:
+            number_wild = track.length - self.train_cards[color] 
+            self.train_cards[color] = 0
+            self.train_cards['wild'] -= number_wild
+            train_card('wild').discard()
+        track.owner = self.index
+        self.train_count -= track.length
+        self.points += track_score[track.length]
+
+    def longest_track(self):
+        g = nx.Graph()
+
+        my_tracks = [t for t in track_list if t.owner == self.index]
+        for t in my_tracks:
+            g.add_edge(t.city1, t.city2, weight = t.length)
+
+#        while g:
+#            for edge in g.edges:
+#                g.edges.
+#                traversed = list(edge)
+
+        
+        return longest
 
 #player_routes = {}
 #for i in range(n_p):
@@ -360,15 +429,15 @@ class player(object):
      #   print(j.city1,j.city2,j.points)
     #print('--'*50)
 
-#g = nx.MultiGraph()
-#for i in track_list:
-#    g.add_edge(i.city1,i.city2,i.length)
-#
-#plt.figure(1,figsize=(18,8))
-#nx.draw_networkx(g,with_labels=True)
-#
-##nx.shortest_path(g,'vancouver','miami')
-#
+# g = nx.MultiGraph()
+# for i in track_list:
+   # g.add_edge(i.city1,i.city2,weight=i.length)
+
+
+# plt.figure(1,figsize=(10,6))
+# plt.gca().invert_yaxis()
+# nx.draw_networkx(g,pos=valid_cities, with_labels=True)
+
 #g2 = nx.MultiGraph()
 #for i in route_card_list:
 #    g2.add_edge(i.city1,i.city2)
@@ -376,3 +445,43 @@ class player(object):
 #plt.figure(1,figsize=(18,8))
 #nx.draw_networkx(g2,with_labels=True)
 
+#def get_route_cost(g, city1, city2):
+#    cost = 0
+#    shortest_path = nx.dijkstra_path(g, city1, city2)
+#    for i in range(len(shortest_path) - 1):
+#        cost += g[shortest_path[i]] [shortest_path[i+1]] [0] ['weight']
+#    return cost
+
+def get_route_cost(g, route_card_list):
+    # g - networkx graph
+    # route_card_list - list of 2 or 3 route cards
+    cost = 0
+    points = 0
+    g2 = g.copy()
+    cities = set()
+
+    #calculate cost and number of points for each route
+    for rc in route_card_list:
+        shortest_path = nx.dijkstra_path(g2, rc.city1, rc.city2)
+        for city in shortest_path:
+            cities.add(city)
+        for i in range(len(shortest_path) - 1):
+            track_length = g2[shortest_path[i]] [shortest_path[i+1]] [0] ['weight']
+            cost += track_length
+            points += track_score[track_length]
+            g2[shortest_path[i]] [shortest_path[i+1]] [0] ['weight'] = 0
+    print (cities)
+    return cost, points
+
+def select_route_cards(g, rcl):
+    eval_list = [(0,1), (1,0), (1,2), (2,1), (0,1,2), (0,2,1), (1,0,2),(1,2,0),(2,0,1),(2,1,0)]
+    for eval in eval_list:
+        route_cards = []
+        for j in eval:
+            route_cards.append(rcl[j])
+        route_cost, points = get_route_cost(g, route_cards)
+        for rc in eval:
+            points += rcl[j].points
+        print(route_cost, points, points/route_cost)
+        
+#select_route_cards(g, [route_card_list[0], route_card_list[1], route_card_list[2]])
