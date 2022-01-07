@@ -5,7 +5,6 @@ Created on Sat Dec 29 12:30:45 2018
 @author: jlawr
 """
 
-
 import socket
 import random
 import ttr
@@ -247,7 +246,7 @@ def server_program():
                 #####################################################################
                 else:
                     try:
-                        if len(play) < 3:
+                        if len(play) < 4:
                             raise Exception("format: bt city1 city2 color")
                         if play[1] in ttr.valid_cities:
                             city1 = play[1]
@@ -282,8 +281,10 @@ def server_program():
                         # does the player have the cards needed to buy the track
                         found_track = False
                         for track in tracks_available:
+                            if track.length > players[player].train_count:
+                                raise Exception("you do not have enough trains to buy that track")
                             if (track.color == color or track.color == 'grey') and players[player].can_afford(track, color):
-                                players[player].buy_track(track, color)
+                                players[player].buy_track(tc, track, color)
                                 found_track = True
                                 break
                         if not found_track:
@@ -299,12 +300,94 @@ def server_program():
         
 
         if last_play_of_game and player == last_player:
+            print("\n================================")
+            print("========   end of game =========")
+            print("================================\n")
+            players_longest_trains = []
+            players_longest_paths = []
+            longest_train = 0
+            
+            # create a list of each players longest trains
+            for player in players:
+                longest_path, longest_path_length = player.longest_track()
+                players_longest_trains.append(longest_path_length)
+                players_longest_paths.append(longest_path)
+                if longest_path_length > longest_train:
+                    longest_train = longest_path_length
+
+            # see if there were any ties for longest train
+            if players_longest_trains.count(longest_train) > 1:
+                print("players tied for longest train, length " + str(longest_train))
+                for i, length in enumerate(players_longest_trains):
+                    if length == longest_train:
+                        print("player {0:d}".format(i))
+                        print(players_longest_paths[i])
+            else:
+                for i, length  in enumerate(players_longest_trains):
+                    if length == longest_train:
+                        print ("player {0:d} had the longest train, length {1:d}".format( i, longest_train))
+                        print (players_longest_paths[i])
+                        break
+            
+            high_score = 0
+            player_scores = []
+            
+            # calculate each players score
+            for player in players:
+                score = player.points
+                completed_route_cards = 0
+                print("\nplayer {0:d} scored {1:d} for track segments owned".format(player.index, player.points))
+                if players_longest_trains[player.index] == longest_train:
+                    print("player {0:d} scored 10 points for longest train".format(player.index))
+                    score += 10 # bonus for longest train
+                for rc in player.route_cards:
+                    if player.route_completed(rc):
+                        print("player {0:d} completed route {1:s} {2:s} for {3:d} points".format(player.index, rc.city1, rc.city2, rc.points))
+                        score += rc.points
+                        completed_route_cards += 1
+                    else:
+                        print("player {0:d}  did not complete route {1:s} {2:s} -{3:d} points".format(player.index, rc.city1, rc.city2, rc.points))
+                        score -= rc.points
+                player_scores.append({player.index, score, completed_route_cards})
+                
             # TODO: report winner, final score
+            # is there a tie
+            player_scores.sort(Key = lambda score: score[1], reverse = True)
+            high_score = player_scores[0][1]
+            ties = list(filter(player_scores[1] == high_score, player_scores  ))
+            if ties.count() == 1 :
+                # print winner
+                pass
+            else:
+                ties.sort(key = lambda completed : ties[2], reverse = True)
+                most_completed = ties[0][2]
+                ties = list(filter(ties[2] == most_completed, ties))
+                if ties.count() == 1:
+                    #print winner
+                    pass
+                else:
+                    ties.sort(key = lambda longest_track : ties[3], reverse = True)
+                    longest_track = ties[0][3]
+                    ties = list(filter(ties[3] == longest_track, ties))
+                    if ties.count() == 1:
+                        #print winner
+                        pass
+                    else:
+                        #print winners
+                        pass
+
+            # player with the most completed route cards breaks the tie
+            # still tied, player with longest train is the tie breaker
+
             break
         
-        if players[player].get_train_count() <= 2:
-            last_play_of_game = True
-            last_player = player
+        if not last_play_of_game:
+            if players[player].get_train_count() <= 2:
+                last_play_of_game = True
+                print("\n================================")
+                print("player {0:d} has {1:d} trains remaining, each player gets one more turn".format(players[player].index, players[player].get_train_count()))
+                print("================================")
+                last_player = player
             
         if player < number_of_players - 1 :
             player += 1

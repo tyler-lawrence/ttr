@@ -1,56 +1,78 @@
 import networkx as nx
 import ttr
-
-g = nx.Graph()
-# g_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (13,7), (7,8), (8,2), (8,3), (3,9), (9,10), (10,11), (11,12), (14,15), (15,16)]
+import matplotlib.pyplot as plt
 
 my_tracks = [
-              ttr.track('el_paso','dallas','red',4),
-              ttr.track('helena','winnipeg','blue',4),
-              ttr.track('helena','salt_lake','pink',3),
-              ttr.track('helena','denver','green',4),
-              ttr.track('salt_lake','denver','red',3),
-              ttr.track('denver','kansas_city','orange',4),
-              ttr.track('denver','santa_fe','grey',2),
-              ttr.track('phoenix','santa_fe','grey',3),
-              ttr.track('phoenix','el_paso','grey',3),
-              ttr.track('santa_fe','el_paso','grey',2),
-              ttr.track('denver','kansas_city','black',4),
+             ttr.track('el_paso','dallas','red',4),
+             ttr.track('helena','winnipeg','blue',4),
+             ttr.track('helena','salt_lake','pink',3),
+             ttr.track('helena','denver','green',4),
+             ttr.track('salt_lake','denver','red',3),
+             ttr.track('denver','kansas_city','orange',4),
+             ttr.track('denver','santa_fe','grey',2),
+             ttr.track('phoenix','santa_fe','grey',3),
+             ttr.track('phoenix','el_paso','grey',3),
+             ttr.track('santa_fe','el_paso','grey',2),
              ]
 
+# my_tracks = [
+              # ttr.track('omaha','chicago','blue',2),
+              # ttr.track('chicago','pittsburgh','orange',3),
+              # ttr.track('kansas_city','saint_louis','blue',2),
+              # ttr.track('saint_louis','pittsburgh','green',5),
+              # ttr.track('oklahoma_city','little_rock','grey',2),
+              # ttr.track('little_rock','nashville','white',3),
+              # ttr.track('nashville','raleigh','black',3),
+              # ttr.track('pittsburgh','raleigh','grey',2),
+             # ]
 
-#g.add_edges_from(track_list)
-for t in my_tracks:
-    g.add_edge(t.city1, t.city2, weight = t.length)
+def longest(g, path_length, path, city):
+    neighbor_list = [n for n in nx.neighbors(g,city)]
+    longest_path = []
+    longest_path_length = 0
 
-def longest(g, city):
-#    print(longest_track, track_length, traversed, city)
-    neighbors = [n for n in nx.all_neighbors(g,city)]
-    if len(neighbors) == 1:
-        edge = (city, neighbors[0])
-        longest_path = [city, neighbors[0]]
-        longest_path_length = g.edges[edge]['weight']
-        g.remove_node(city)
-    else:
-        longest_path = []
-        longest_path_length = 0
-        for n in neighbors:
-            this_g = g.copy().remove_edge(city, n)
-            this_g, this_longest_path, this_longest_path_length = longest(g, n)
+    if neighbor_list:
+        for n in neighbor_list:
+            this_g = g.copy()
+            edge = (city,n)
+            this_edge_length = g.edges[edge]['weight']
+            this_g.remove_edge(city, n)
+            this_g, this_longest_path, this_longest_path_length = longest(this_g, this_edge_length, [edge], n)
             if this_longest_path_length > longest_path_length:
                 longest_path_length = this_longest_path_length
                 longest_path = this_longest_path
-                g = this_g
-    return g, longest_path, longest_path_length
+                longest_g = this_g
+    else:
+        return g, path, path_length
+    path_length += longest_path_length
+    path.extend(longest_path)
+    return longest_g, path, path_length
 
+print("libs loaded")
+gbase = nx.Graph()
+gmap = nx.Graph()
 
-for i,city in enumerate(g.nodes):
-    if i == 0:
-        city2 = next(g.neighbors(city))
-        long_track = [city, city2]
-        track_length = g.edges[(city,city2)]['weight']
-        g, longest_path, longest_path_length =  longest(g, city)
-    if this_track_length > track_length:
-        long_track = this_track
+for t in ttr.track_list:
+    gmap.add_edge(t.city1, t.city2, weight = t.length)
+
+for t in my_tracks:
+    gbase.add_edge(t.city1, t.city2, weight = t.length)
+
+longest_track_length = 0;
+longest_path = []
+
+for city in gbase.nodes():
+    g = gbase.copy()
+    g, path, track_length = longest(g, 0, [], city)
+    if track_length > longest_track_length:
+        longest_track_length = track_length
+        longest_path = path
+
         
-print(long_track)
+plt.figure(1,figsize=(10,6))
+plt.gca().invert_yaxis()
+nx.draw_networkx(gmap,pos=ttr.valid_cities,with_labels=True, style='dashed')
+nx.draw_networkx(gbase,pos=ttr.valid_cities,with_labels=True, edge_color='blue', style='dashed', width = 3.0)
+nx.draw_networkx_edges(gbase,pos=ttr.valid_cities, edgelist=longest_path, edge_color='blue',width = 4.0, with_labels=True)
+plt.show()
+print(longest_path, longest_track_length)

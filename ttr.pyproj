@@ -20,6 +20,7 @@
     <VisualStudioVersion Condition=" '$(VisualStudioVersion)' == '' ">10.0</VisualStudioVersion>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="EndGame.py" />
     <Compile Include="ttr.py" />
     <Compile Include="ttr_client.py" />
     <Compile Include="ttr_server.py" />

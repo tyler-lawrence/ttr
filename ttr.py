@@ -6,6 +6,7 @@ import networkx as nx
 # list of valid cities that can be used. Use this to throw errors or suggest cities to enter so it will match how I programmed cities.
 
 valid_cities = {
+#   'city_name" : (x, y) 
     'atlanta' : (24,13),
     'boston' : (30.5,4.3),
     'calgary' : (7.25, 2.5),
@@ -43,6 +44,8 @@ valid_cities = {
     'washington' : (30.5, 9.25),
     'winnipeg' : (14,3)
 }
+
+#train card colors
 colors = ['black','blue','white','green','red','orange','yellow','pink']
 
 class track(object):
@@ -63,6 +66,7 @@ class track(object):
         except AssertionError as e:
             print(e)
             
+ #                  'city1', 'city2', tack_color, track_length
 track_list = [track('vancouver','seattle','grey',1),
               track('vancouver','seattle','grey',1),
               track('vancouver','calgary','grey',3),
@@ -75,7 +79,6 @@ track_list = [track('vancouver','seattle','grey',1),
               track('portland','seattle','grey',1),
               track('portland','san_francisco','green',5),
               track('portland','san_francisco','pink',5),
-              track('portland','salt_lake','blue',6),
               track('san_francisco','salt_lake','orange',5),
               track('san_francisco','salt_lake','white',5),
               track('san_francisco','los_angeles','yellow',3),
@@ -89,7 +92,6 @@ track_list = [track('vancouver','seattle','grey',1),
               track('phoenix','santa_fe','grey',3),
               track('salt_lake','denver','red',3),
               track('salt_lake','denver','yellow',3),
-              track('salt_lake','helena','pink',3),
               track('calgary','winnipeg','white',6),
               track('helena','duluth','orange',6),
               track('helena','omaha','red',5),
@@ -105,7 +107,7 @@ track_list = [track('vancouver','seattle','grey',1),
               track('el_paso','oklahoma_city','yellow',5),
               track('el_paso','dallas','red',4),
               track('el_paso','houston','green',6),
-              track('winnipeg','duluth','black',6),
+              track('winnipeg','duluth','black',4),
               track('winnipeg','sault_st_marie','grey',6),
               track('duluth','sault_st_marie','grey',3),
               track('duluth','omaha','grey',2),
@@ -123,7 +125,7 @@ track_list = [track('vancouver','seattle','grey',1),
               track('oklahoma_city','little_rock','grey',2),
               track('kansas_city','saint_louis','blue',2),
               track('kansas_city','saint_louis','pink',2),
-              track('omaha','chicago','blue',2),
+              track('omaha','chicago','blue',4),
               track('duluth','chicago','red',3),
               track('duluth','toronto','pink',6),
               track('sault_st_marie','toronto','grey',2),
@@ -134,6 +136,7 @@ track_list = [track('vancouver','seattle','grey',1),
               track('chicago','saint_louis','white',2),
               track('chicago','saint_louis','green',2),
               track('saint_louis','little_rock','grey',2),
+              track('saint_louis','nashville','grey',2),
               track('little_rock','new_orleans','green',3),
               track('saint_louis','pittsburgh','green',5),
               track('little_rock','nashville','white',3),
@@ -161,7 +164,7 @@ track_list = [track('vancouver','seattle','grey',1),
               track('atlanta','raleigh','grey',2),
               track('raleigh','charleston','grey',2),
               track('atlanta','charleston','grey',2),
-              track('charleston','miami','pink',2),
+              track('charleston','miami','pink',4),
               track('miami','atlanta','blue',5),
               track('miami','new_orleans','red',6)
              ]
@@ -189,9 +192,9 @@ class route_card(object):
         return [self.city1, self.city2, self.points]
 
 route_card_list=[
-    route_card('portland','phoenix',10),
+    route_card('portland','phoenix',11),
     route_card('san_francisco','atlanta',17),
-    route_card('montreal','atlanta',17),
+    route_card('montreal','atlanta',9),
     route_card('montreal','new_orleans',13),
     route_card('duluth','houston',8),
     route_card('vancouver','santa_fe',13),
@@ -287,7 +290,7 @@ class train_card(object):
     def three_wild_check(self):
         count = self.face_up_pile.count('wild')
         while count >= 3:
-            self.discard_pile.append(self.face_up_pile)
+            self.discard_pile.extend(self.face_up_pile)
             self.face_up_pile.clear()
             for i in range(5):
                 self.face_up_pile.append(self.get_train_card_from_deck())
@@ -297,8 +300,8 @@ class train_card(object):
         card = self.deck.pop()
         if not self.deck:
             random.shuffle(self.discard_pile)
-            self.deck = self.discard_pile.copy()
-            self.discard_pile.clear()
+            self.deck = self.discard_pile
+            self.discard_pile = []
         return card
     
     def get_face_up_pile(self):
@@ -316,21 +319,10 @@ class train_card(object):
         except Exception as e:
             raise e
 
-    def discard(self):
-        self.discard_pile.append(self)
+    def discard(self, color):
+        self.discard_pile.append(color)
             
     
-#distributes the intial starting cards. each person gets two cards
-#print('cards in starting deck:',len(deck))
-#n_p = 4 # number of players in the game
-#hands = {}
-#for i in range(n_p):
-#    hands['player_{0}'.format(i+1)] = []
-#    for j in range(2):
-#        hands['player_{0}'.format(i+1)].append(deck[j])
-#        deck.pop(j)
-#print(hands)
-
 class player(object):
     ''' 
     container for player state info
@@ -341,9 +333,11 @@ class player(object):
         self.train_cards = dict({'black' : 0,'blue' : 0,'white' : 0,
                                  'green' : 0,'red' : 0,'orange' : 0,
                                  'yellow' : 0,'pink' : 0, 'wild' : 0})
-        self.train_count = 45
+        #self.train_count = 45
+        self.train_count = 15
         self.points = 0
         self.index = index
+        self.g = nx.Graph()   # keep a graph of tracks owned
             
     def store_route_card(self, route_card):
         self.route_cards.append(route_card)
@@ -355,35 +349,91 @@ class player(object):
         return self.train_count
         
     def can_afford(self, track, color):
+        if color == "wild":
+            return track.length <= self.train_cards["wild"]
         return track.length <= (self.train_cards[color] + self.train_cards['wild'])
 
-    def buy_track(self, track, color):
+    def buy_track(self, tc, track, color):
         if track.length <= self.train_cards[color]:
             self.train_cards[color] -= track.length
-            train_card(color).discard()
+            for i in range(track.length):
+                tc.discard(color)
         else:
             number_wild = track.length - self.train_cards[color] 
             self.train_cards[color] = 0
+            for i in range(track.length - number_wild):
+                tc.discard(color)
             self.train_cards['wild'] -= number_wild
-            train_card('wild').discard()
+            for i in range(number_wild):
+                tc.discard('wild')
         track.owner = self.index
         self.train_count -= track.length
         self.points += track_score[track.length]
+        self.g.add_edge(track.city1, track.city2)
+        
+    def route_completed(self, rc):
+        if rc.city1 in self.g and rc.city2 in self.g :
+            return nx.algorithms.shortest_paths.generic.has_path(self.g, rc.city1, rc.city2)
+        else:
+            return False
 
     def longest_track(self):
-        g = nx.Graph()
+        # calculates the length of this players longest track for end of game scoring
+        # returns
+        # longest_path - list of tuples of track segments used for plotting graphs
+        # longest_path_length - sum of lengths of track segments used for scoring
+ 
+        def longest(g, path_length, path, city):
+            # calculates the longest path starting from a particular city
+            neighbor_list = [n for n in nx.neighbors(g,city)]
+            longest_path = []
+            longest_path_length = 0
+
+            if neighbor_list:
+                for n in neighbor_list:
+                    # create a copy of the remaining graph so far for each neighbor minus the edge
+                    # we are about to traverse
+                    this_g = g.copy()
+                    edge = (city,n)
+                    this_edge_length = g.edges[edge]['weight']
+                    this_g.remove_edge(city, n)
+                    
+                    # recursive call to this function, this time with a reduced graph 
+                    this_g, this_longest_path, this_longest_path_length = longest(this_g, this_edge_length, [edge], n)
+                    
+                    # keep the longest path starting from city
+                    if this_longest_path_length > longest_path_length:
+                        longest_path_length = this_longest_path_length
+                        longest_path = this_longest_path
+                        longest_g = this_g
+            else:
+                # got to a leaf node, we're done
+                return g, path, path_length
+
+            path_length += longest_path_length
+            path.extend(longest_path)
+            return longest_g, path, path_length
+
+        # create a NetworkX graph of tracks owned by this player
+        gbase = nx.Graph()
 
         my_tracks = [t for t in track_list if t.owner == self.index]
         for t in my_tracks:
-            g.add_edge(t.city1, t.city2, weight = t.length)
+            gbase.add_edge(t.city1, t.city2, weight = t.length)
 
-#        while g:
-#            for edge in g.edges:
-#                g.edges.
-#                traversed = list(edge)
+        longest_track_length = 0;
+        longest_path = []
 
-        
-        return longest
+        # the longest path is evaluated starting with each city in this player's owned tracks and
+        # reporting the longest one
+        for city in gbase.nodes():
+            g = gbase.copy() # need a new copy each time, longest() eats the graph while evaluating it
+            g, path, track_length = longest(g, 0, [], city)
+            if track_length > longest_track_length:
+                longest_track_length = track_length
+                longest_path = path
+
+        return longest_path, longest_track_length
 
 #player_routes = {}
 #for i in range(n_p):
@@ -485,3 +535,4 @@ def select_route_cards(g, rcl):
         print(route_cost, points, points/route_cost)
         
 #select_route_cards(g, [route_card_list[0], route_card_list[1], route_card_list[2]])
+
